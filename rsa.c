@@ -50,6 +50,11 @@
             "not defined.\n"
 #endif
 
+#ifndef MBEDTLS_UTILS_DEBUG_ENABLED
+#undef mbedtls_printf
+#define mbedtls_printf(...)
+#endif
+
 #include "mbedtls/pk.h"
 #include "mbedtls/rsa.h"
 #include "mbedtls/entropy.h"

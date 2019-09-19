@@ -50,6 +50,11 @@
 		"not defined.\n"
 #endif
 
+#ifndef MBEDTLS_UTILS_DEBUG_ENABLED
+#undef mbedtls_printf
+#define mbedtls_printf(...)
+#endif
+
 #include "mbedtls/base64.h"
 #include "mbedtls/sha256.h"
 #include "mbedtls/sha1.h"
