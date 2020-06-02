@@ -66,10 +66,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "rsa.h"
+#include "mbedtls-utils/rsa.h"
 
 #ifdef MBEDTLS_FS_IO
-static int write_private_key_pem( mbedtls_pk_context *key, const char *output_file )
+static int write_private_key_pem
+	(
+		mbedtls_pk_context *key,
+		const char *output_file
+	)
 {
     int ret;
     FILE *f;
@@ -97,7 +101,11 @@ static int write_private_key_pem( mbedtls_pk_context *key, const char *output_fi
     return( 0 );
 }
 
-static int write_private_key_der( mbedtls_pk_context *key, const char *output_file )
+static int write_private_key_der
+	(
+		mbedtls_pk_context *key,
+		const char *output_file
+	)
 {
     int ret;
     FILE *f;
@@ -131,7 +139,11 @@ static int write_private_key_der( mbedtls_pk_context *key, const char *output_fi
     return( 0 );
 }
 
-static int write_public_key_pem( mbedtls_pk_context *key, const char *output_file )
+static int write_public_key_pem
+	(
+		mbedtls_pk_context *key,
+		const char *output_file
+	)
 {
     int ret;
     FILE *f;
@@ -160,7 +172,11 @@ static int write_public_key_pem( mbedtls_pk_context *key, const char *output_fil
     return( 0 );
 }
 
-static int write_public_key_der( mbedtls_pk_context *key, const char *output_file )
+static int write_public_key_der
+	(
+		mbedtls_pk_context *key,
+		const char *output_file
+	)
 {
     int ret;
     FILE *f;
@@ -195,12 +211,10 @@ static int write_public_key_der( mbedtls_pk_context *key, const char *output_fil
     return( 0 );
 }
 
-int ecp_write_pem
-	(
+int ecdsa_write_pem(
 		mbedtls_pk_context *ctx,
 		const char *private_key_output_file,
-		const char *public_key_output_file
-	)
+		const char *public_key_output_file)
 {
 	int ret = 1;
 
@@ -219,12 +233,10 @@ int ecp_write_pem
 	return ( ret );
 }
 
-int ecp_write_der
-	(
+int ecdsa_write_der(
 		mbedtls_pk_context *ctx,
 		const char *private_key_output_file,
-		const char *public_key_output_file
-	)
+		const char *public_key_output_file)
 {
 	int ret = 1;
 
@@ -244,27 +256,53 @@ int ecp_write_der
 }
 #endif
 
-int ecp_gen_key(mbedtls_pk_context *ctx, mbedtls_ecp_group_id group_id)
+static void dump_buf( const char *title, unsigned char *buf, size_t len )
+{
+    size_t i;
+
+    mbedtls_printf( "%s", title );
+    for( i = 0; i < len; i++ )
+        mbedtls_printf("%c%c", "0123456789ABCDEF" [buf[i] / 16],
+                       "0123456789ABCDEF" [buf[i] % 16] );
+    mbedtls_printf( "\n" );
+}
+
+static void dump_pubkey( const char *title, mbedtls_ecdsa_context *key )
+{
+    unsigned char buf[300];
+    size_t len;
+
+    if( mbedtls_ecp_point_write_binary( &key->grp, &key->Q,
+                MBEDTLS_ECP_PF_UNCOMPRESSED, &len, buf, sizeof buf ) != 0 )
+    {
+        mbedtls_printf("internal error\n");
+        return;
+    }
+
+    dump_buf( title, buf, len );
+}
+
+int ecdsa_gen_key1(mbedtls_pk_context *ctx, mbedtls_ecp_group_id group_id)
 {
 	int ret = 1;
 	mbedtls_entropy_context entropy;
 	mbedtls_ctr_drbg_context ctr_drbg;
-	mbedtls_ecp_keypair *ecp;
-	const char *pers = "ecp random seed";
+	mbedtls_ecdsa_context *ecdsa;
+	const char *pers = "ecdsa random seed";
 //	mbedtls_mpi N, P, Q, D, E, DP, DQ, QP;
 
 	mbedtls_ctr_drbg_init( &ctr_drbg );
 	mbedtls_entropy_init( &entropy );
 
-	mbedtls_printf( "  . Initialise ECP context..." );
-	if( ( ret = mbedtls_pk_setup(ctx, mbedtls_pk_info_from_type(MBEDTLS_PK_ECKEY)) ) != 0 )
+	mbedtls_printf( "  . Initialise ECDSA context..." );
+	if( ( ret = mbedtls_pk_setup(ctx, mbedtls_pk_info_from_type(MBEDTLS_PK_ECDSA)) ) != 0 )
 	{
 		mbedtls_printf( " failed\n  !  mbedtls_pk_setup returned -0x%04x", -ret );
 		goto exit;
 	}
 	mbedtls_printf( " ok\n" );
 
-	ecp = (mbedtls_ecp_keypair *)ctx->pk_ctx;
+	ecdsa = (mbedtls_ecdsa_context *)ctx->pk_ctx;
 //	mbedtls_ecdsa_init(ecdsa);
 
 	mbedtls_printf( "  . Seeding the random number generator..." );
@@ -278,16 +316,17 @@ int ecp_gen_key(mbedtls_pk_context *ctx, mbedtls_ecp_group_id group_id)
 	mbedtls_printf( " ok\n" );
 
 	mbedtls_printf( " ok\n  . Generating key pair..." );
-	if( ( ret = mbedtls_ecp_gen_key( group_id, ecp, mbedtls_ctr_drbg_random, &ctr_drbg ) ) != 0 )
+	if( ( ret = mbedtls_ecdsa_genkey( ecdsa, group_id, mbedtls_ctr_drbg_random, &ctr_drbg ) ) != 0 )
 	{
-		mbedtls_printf( " failed\n  ! mbedtls_ecp_gen_key returned %d\n", ret );
+		mbedtls_printf( " failed\n  ! mbedtls_ecdsa_genkey returned %d\n", ret );
 		goto exit;
 	}
-	mbedtls_printf( " ok (key size: %d bits)\n", (int) ecp->grp.pbits );
+	mbedtls_printf( " ok (key size: %d bits)\n", (int) ecdsa->grp.pbits );
 
+	dump_pubkey( "  + Public key: ", ecdsa );
 exit:
 	mbedtls_ctr_drbg_free( &ctr_drbg );
 	mbedtls_entropy_free( &entropy );
-//	mbedtls_ecdsa_free(ecp);
+//	mbedtls_ecdsa_free(ecdsa);
 	return( ret );
 }

@@ -56,7 +56,7 @@
 #endif
 
 #include "mbedtls/pk.h"
-#include "mbedtls/rsa.h"
+#include "mbedtls/ecdsa.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/md.h"
@@ -66,14 +66,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "rsa.h"
+#include "mbedtls-utils/rsa.h"
 
 #ifdef MBEDTLS_FS_IO
-static int write_private_key_pem
-	(
-		mbedtls_pk_context *key,
-		const char *output_file
-	)
+static int write_private_key_pem( mbedtls_pk_context *key, const char *output_file )
 {
     int ret;
     FILE *f;
@@ -101,11 +97,7 @@ static int write_private_key_pem
     return( 0 );
 }
 
-static int write_private_key_der
-	(
-		mbedtls_pk_context *key,
-		const char *output_file
-	)
+static int write_private_key_der( mbedtls_pk_context *key, const char *output_file )
 {
     int ret;
     FILE *f;
@@ -139,11 +131,7 @@ static int write_private_key_der
     return( 0 );
 }
 
-static int write_public_key_pem
-	(
-		mbedtls_pk_context *key,
-		const char *output_file
-	)
+static int write_public_key_pem( mbedtls_pk_context *key, const char *output_file )
 {
     int ret;
     FILE *f;
@@ -172,11 +160,7 @@ static int write_public_key_pem
     return( 0 );
 }
 
-static int write_public_key_der
-	(
-		mbedtls_pk_context *key,
-		const char *output_file
-	)
+static int write_public_key_der( mbedtls_pk_context *key, const char *output_file )
 {
     int ret;
     FILE *f;
@@ -211,7 +195,7 @@ static int write_public_key_der
     return( 0 );
 }
 
-int rsa_write_pem
+int ecp_write_pem
 	(
 		mbedtls_pk_context *ctx,
 		const char *private_key_output_file,
@@ -235,7 +219,7 @@ int rsa_write_pem
 	return ( ret );
 }
 
-int rsa_write_der
+int ecp_write_der
 	(
 		mbedtls_pk_context *ctx,
 		const char *private_key_output_file,
@@ -260,39 +244,28 @@ int rsa_write_der
 }
 #endif
 
-#define KEY_SIZE 2048
-#define EXPONENT 65537
-int rsa_gen_key
-	(
-		mbedtls_pk_context *ctx,
-		unsigned int nbits,
-		int exponent
-	)
+int ecp_gen_key(mbedtls_pk_context *ctx, mbedtls_ecp_group_id group_id)
 {
 	int ret = 1;
 	mbedtls_entropy_context entropy;
 	mbedtls_ctr_drbg_context ctr_drbg;
-	mbedtls_rsa_context *rsa;
-	const char *pers = "rsa random seed";
+	mbedtls_ecp_keypair *ecp;
+	const char *pers = "ecp random seed";
 //	mbedtls_mpi N, P, Q, D, E, DP, DQ, QP;
 
 	mbedtls_ctr_drbg_init( &ctr_drbg );
 	mbedtls_entropy_init( &entropy );
 
-	mbedtls_printf( "  . Initialise RSA context..." );
-	if( ( ret = mbedtls_pk_setup(ctx, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA)) ) != 0 )
+	mbedtls_printf( "  . Initialise ECP context..." );
+	if( ( ret = mbedtls_pk_setup(ctx, mbedtls_pk_info_from_type(MBEDTLS_PK_ECKEY)) ) != 0 )
 	{
 		mbedtls_printf( " failed\n  !  mbedtls_pk_setup returned -0x%04x", -ret );
 		goto exit;
 	}
 	mbedtls_printf( " ok\n" );
 
-	rsa = (mbedtls_rsa_context *)ctx->pk_ctx;
-//	mbedtls_rsa_init( rsa, MBEDTLS_RSA_PKCS_V15, 0 );
-	mbedtls_rsa_init( rsa, MBEDTLS_RSA_PKCS_V21, 0 );
-//	mbedtls_mpi_init( &N ); mbedtls_mpi_init( &P ); mbedtls_mpi_init( &Q );
-//	mbedtls_mpi_init( &D ); mbedtls_mpi_init( &E ); mbedtls_mpi_init( &DP );
-//	mbedtls_mpi_init( &DQ ); mbedtls_mpi_init( &QP );
+	ecp = (mbedtls_ecp_keypair *)ctx->pk_ctx;
+//	mbedtls_ecdsa_init(ecdsa);
 
 	mbedtls_printf( "  . Seeding the random number generator..." );
 	if( ( ret = mbedtls_ctr_drbg_seed( &ctr_drbg, mbedtls_entropy_func, &entropy,
@@ -304,24 +277,17 @@ int rsa_gen_key
 	}
 	mbedtls_printf( " ok\n" );
 
-	mbedtls_printf( "  . Generating the RSA key [ %d-bit ]...", nbits );
-	if( ( ret = mbedtls_rsa_gen_key( rsa, mbedtls_ctr_drbg_random, &ctr_drbg, nbits, exponent ) ) != 0 )
+	mbedtls_printf( " ok\n  . Generating key pair..." );
+	if( ( ret = mbedtls_ecp_gen_key( group_id, ecp, mbedtls_ctr_drbg_random, &ctr_drbg ) ) != 0 )
 	{
-		mbedtls_printf( " failed\n  ! mbedtls_rsa_gen_key returned %d\n\n", ret );
+		mbedtls_printf( " failed\n  ! mbedtls_ecp_gen_key returned %d\n", ret );
 		goto exit;
 	}
-	mbedtls_printf( " ok\n" );
+	mbedtls_printf( " ok (key size: %d bits)\n", (int) ecp->grp.pbits );
 
-//	mbedtls_printf( " ok\n  . Exporting the public  key in rsa_pub.txt...." );
-
-//	if( ( ret = mbedtls_rsa_export    ( &rsa, &N, &P, &Q, &D, &E ) ) != 0 ||
-//		( ret = mbedtls_rsa_export_crt( &rsa, &DP, &DQ, &QP ) )      != 0 )
-//	{
-//		mbedtls_printf( " failed\n  ! could not export RSA parameters\n\n" );
-//		return ret;
-//	}
 exit:
 	mbedtls_ctr_drbg_free( &ctr_drbg );
 	mbedtls_entropy_free( &entropy );
+//	mbedtls_ecdsa_free(ecp);
 	return( ret );
 }
