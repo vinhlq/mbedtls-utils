@@ -394,7 +394,7 @@ int x509store_load_pair_from_file(	const char *key_path, const char *crt_path,
 {
 	int ret;
 	unsigned char *pem_buf;
-	size_t pem_size;
+	uint32_t pem_size;
 
 	pem_buf = malloc(PEM_BUFFER_SIZE);
 	if(!pem_buf)
