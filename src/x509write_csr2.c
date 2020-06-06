@@ -46,7 +46,8 @@
     !defined(MBEDTLS_PEM_WRITE_C)
 #error  "MBEDTLS_X509_CSR_WRITE_C and/or "	\
 		"MBEDTLS_PK_PARSE_C and/or MBEDTLS_SHA256_C and/or "	\
-		"MBEDTLS_ENTROPY_C and/or MBEDTLS_CTR_DRBG_C "	\
+		"MBEDTLS_ENTROPY_C and/or MBEDTLS_CTR_DRBG_C and/or "	\
+		"MBEDTLS_PEM_WRITE_C"	\
 		"not defined.\n"
 #endif
 
