@@ -203,7 +203,7 @@ int x509store_write_aws_ecc_cert
 (
 	mbedtls_ecp_group_id group_id,
 	const char *subject_name, mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
-	const char *root_ca_pem,
+	const char *ca_cert_pem, uint32_t ca_cert_pem_size,
 	const char *key_path, const char *crt_path,
 	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional
 )
@@ -213,7 +213,7 @@ int x509store_write_aws_ecc_cert
 	mbedtls_pk_context subject_key;
     mbedtls_x509write_cert x509write_crt_ctx;
 	unsigned char *pem_buf;
-	uint32_t len, olen;
+	size_t len, olen;
 
 	pem_buf = malloc(PEM_BUFFER_SIZE);
 	if(!pem_buf)
@@ -237,7 +237,7 @@ int x509store_write_aws_ecc_cert
 //	mbedtls_printf("%s\n", pem_buf);
 	mbedtls_printf( " ok\n" );
 
-	if( (ret = mbedtls_util_write_file(key_path, 0, pem_buf, strlen((const char *)pem_buf), false) ) )
+	if( (ret = mbedtls_util_write_file(key_path, 0, pem_buf, ca_cert_pem_size, false) ) )
 	{
 		mbedtls_printf( "  . write file '%s' failed\n", key_path);
 		ret = -1;
@@ -271,8 +271,8 @@ int x509store_write_aws_ecc_cert
 		struct chunk_arg_s arg1, arg2;
 		arg1.buffer = pem_buf;
 		arg1.length = olen;
-		arg2.buffer = root_ca_pem;
-		arg2.length = strlen(root_ca_pem);
+		arg2.buffer = ca_cert_pem;
+		arg2.length = strlen(ca_cert_pem);
 #if 1
 		if(QAPI_OK != mbedtls_util_write_file_chunk(crt_path, false, 0, 2, &arg1, &arg2))
 		{
@@ -294,7 +294,7 @@ int x509store_write_aws_ecc_cert
 			goto exit;
 		}
 
-		if( ( ret = mbedtls_util_write_file(crt_path, 0, root_ca_pem, strlen(root_ca_pem), true) ) )
+		if( ( ret = mbedtls_util_write_file(crt_path, 0, ca_cert_pem, strlen(ca_cert_pem), true) ) )
 		{
 			goto exit;
 		}

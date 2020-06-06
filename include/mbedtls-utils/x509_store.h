@@ -77,7 +77,7 @@ int x509store_write_aws_ecc_cert
 (
 	mbedtls_ecp_group_id group_id,
 	const char *subject_name, mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
-	const char *root_ca_pem,
+	const char *ca_cert_pem, uint32_t ca_cert_pem_size,
 	const char *key_path, const char *crt_path,
 	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional
 );
