@@ -43,7 +43,7 @@
  *                 this function is a no-op. If it is not \c NULL, it must
  *                 point to an initialized RSA context.
  */
-int rsa_gen_key(mbedtls_pk_context *ctx, unsigned int nbits, int exponent);
+int rsa_gen_key(mbedtls_pk_context *ctx, unsigned int nbits, unsigned long exponent);
 
 /**
  * \brief          This function frees the components of an RSA key.

@@ -266,7 +266,7 @@ int rsa_gen_key
 	(
 		mbedtls_pk_context *ctx,
 		unsigned int nbits,
-		int exponent
+		unsigned long exponent
 	)
 {
 	int ret = 1;

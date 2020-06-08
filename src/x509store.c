@@ -92,140 +92,19 @@ static const char *TAG = "esp-tls-store";
 #define PEM_BUFFER_SIZE	(3072)
 
 
-
-int qca_x509store_ecc_cert
-(
-	mbedtls_ecp_group_id group_id,
-	const char *subject_name, mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
-	const char *key_path, const char *crt_path,
-	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional
-)
-{
-	int ret;
-
-	x509write_crt_subject subject;
-	mbedtls_pk_context subject_key;
-    mbedtls_x509write_cert x509write_crt_ctx;
-	unsigned char *pem_buf;
-	size_t olen;
-
-	pem_buf = mbedtls_calloc(PEM_BUFFER_SIZE, sizeof(unsigned char));
-	if(!pem_buf)
-	{
-		return -1;
-	}
-	mbedtls_pk_init( &subject_key );
-	mbedtls_x509write_crt_init( &x509write_crt_ctx );
-
-	mbedtls_printf( "  . Generate the subject key ..." );
-	if( ( ret = ecp_gen_key(&subject_key, group_id) ) )
-		goto exit;
-	memset(pem_buf, 0, PEM_BUFFER_SIZE);
-	if( ( ret = mbedtls_pk_write_key_pem( &subject_key, pem_buf, PEM_BUFFER_SIZE ) ) != 0 )
-		goto exit;
-	mbedtls_printf("%s\n", pem_buf);
-	mbedtls_printf( " ok\r\n" );
-
-	if( ( ret = mbedtls_util_write_file(key_path, 0, pem_buf, strlen((const char *)pem_buf), false) ) )
-	{
-		goto exit;
-	}
-
-//	memset(pem_buf, 0, PEM_BUFFER_SIZE);
-//	qca_x509store_partition_read(x509store->label, x509store->key_offset, pem_buf, PEM_BUFFER_SIZE);
-//	mbedtls_printf("%s\n", pem_buf);
-#if 0
-	debugPrintln
-		(
-			"%s",
-			(const char *)qca_x509store_get_rom_address
-				(
-					x509store->type,
-					x509store->sub_type,
-					x509store->label,
-					x509store->key_offset
-				)
-		);
-#else
-	debugPrintln
-			(
-				"%.*s",
-				olen, pem_buf
-			);
-#endif
-
-
-	subject.name = subject_name;
-	subject.pk = &subject_key;
-    if( ( ret = x509write_crt_setup(&x509write_crt_ctx,
-    								&subject, issuer_crt, issuer_key,
-    								mandatory, optional) ) )
-    {
-    	goto exit;
-    }
-
-	if( ( ret = x509write_crt_write_pem_buffer(&x509write_crt_ctx, pem_buf, PEM_BUFFER_SIZE, &olen) ) )
-	{
-		goto exit;
-	}
-
-	if( ( ret = mbedtls_util_write_file(crt_path, 0, pem_buf, strlen((const char *)pem_buf), false) ) )
-	{
-		goto exit;
-	}
-
-//	mbedtls_printf("%s\n", pem_buf);
-
-#if 0
-	debugPrintln
-		(
-			"%s",
-			(const char *)qca_x509store_get_rom_address
-				(
-					x509store->type, x509store->sub_type,
-					x509store->label,
-					x509store->crt_offset
-				)
-		);
-#else
-	debugPrintln
-			(
-				"%.*s",
-				olen, pem_buf
-			);
-#endif
-	mbedtls_printf( " ok\r\n" );
-
-exit:
-	mbedtls_pk_free( &subject_key );
-	mbedtls_x509write_crt_free( &x509write_crt_ctx );
-	mbedtls_free(pem_buf);
-	return ret;
-}
-
-int x509store_write_aws_cert
+int x509store_cert_generate
 (
 	const char *subject_name, mbedtls_pk_context *subject_key,
 	mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
 	const char *ca_cert_pem, uint32_t ca_cert_pem_size,
-	const char *crt_path,
+	unsigned char *cert_pem_buf, uint32_t cert_pem_buf_size, uint32_t *cert_pem_bytes_written,
 	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional
 )
 {
 	int ret;
 	x509write_crt_subject subject;
     mbedtls_x509write_cert x509write_crt_ctx;
-	unsigned char *pem_buf;
-	size_t len, olen;
-
-	pem_buf = mbedtls_calloc(PEM_BUFFER_SIZE, sizeof(unsigned char));
-	if(!pem_buf)
-	{
-		mbedtls_printf( "  . Memory allocation is failed\n" );
-		return -1;
-	}
-
-//	mbedtls_printf("%s\n", (const char *)qca_x509store_get_rom_address(x509store->type, x509store->sub_type, x509store->label, x509store->key_offset));
+	size_t olen;
 
 	mbedtls_x509write_crt_init( &x509write_crt_ctx );
 	subject.name = subject_name;
@@ -237,89 +116,35 @@ int x509store_write_aws_cert
     	goto exit;
     }
 
-	if( ( ret = x509write_crt_write_pem_buffer(&x509write_crt_ctx, pem_buf, PEM_BUFFER_SIZE, &olen) ) )
+	if( ( ret = x509write_crt_write_pem_buffer(&x509write_crt_ctx, cert_pem_buf, cert_pem_buf_size, &olen) ) )
 	{
 		ret = -1;
 		goto exit;
 	}
-
-	if(olen > 1)
-	{
-		// exclude null character
-		olen -= 1;
-
-#if 0
-		struct chunk_arg_s arg1, arg2;
-		arg1.buffer = pem_buf;
-		arg1.length = olen;
-		arg2.buffer = ca_cert_pem;
-		arg2.length = strlen(ca_cert_pem);
-#if 1
-		if(QAPI_OK != mbedtls_util_write_file_chunk(crt_path, false, 0, 2, &arg1, &arg2))
-		{
-			mbedtls_printf( "  . Write file '%s' failed...\n", crt_path);
-			ret = -1;
-			goto exit;
-		}
-#else
-		if(QAPI_OK != mbedtls_util_write_file_chunk(crt_path, false, 0, 1, &arg1))
-		{
-			mbedtls_printf( "  . Write file '%s' failed...\n", crt_path);
-			ret = -1;
-			goto exit;
-		}
-#endif
-#else
-		cert_printf( "  . cert[%d]:\r\n%s", olen, pem_buf);
-		if( ( ret = mbedtls_util_write_file(crt_path, 0, pem_buf, olen, false) ) )
-		{
-			goto exit;
-		}
-
-#if 1
-		if((PEM_BUFFER_SIZE -1 ) < ca_cert_pem_size)
-		{
-			ret = -1;
-			goto exit;
-		}
-		memcpy(pem_buf, ca_cert_pem, ca_cert_pem_size);
-		pem_buf[ca_cert_pem_size] = '\0';
-		cert_printf( "  . ca cert[%d]:\r\n%s", ca_cert_pem_size, pem_buf);
-		if( ( ret = mbedtls_util_write_file(crt_path, 0, ca_cert_pem, ca_cert_pem_size, true) ) )
-		{
-			goto exit;
-		}
-#endif
-#endif
-	}
-	else
-	{
-		mbedtls_printf( "  . Invalid cert size: %d\n", olen);
-		ret = -1;
-		goto exit;
-	}
+	*cert_pem_bytes_written = (uint32_t)olen;
 
 //	mbedtls_printf("%s\n", pem_buf);
 	mbedtls_printf( " ok\r\n" );
 
 exit:
 	mbedtls_x509write_crt_free( &x509write_crt_ctx );
-	mbedtls_free(pem_buf);
 	return ret;
 }
 
 int x509store_write_aws_ecc_cert
 (
 	mbedtls_ecp_group_id group_id,
-	const char *subject_name, mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
+	const char *subject_name,
+	mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
 	const char *ca_cert_pem, uint32_t ca_cert_pem_size,
 	const char *key_path, const char *crt_path,
 	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional
 )
 {
+	int ret;
 	mbedtls_pk_context subject_key;
 	unsigned char *pem_buf;
-	int ret;
+	uint32_t olen;
 
 	mbedtls_pk_init( &subject_key );
 	mbedtls_printf( "  . Generate the ecp subject key ..." );
@@ -346,14 +171,43 @@ int x509store_write_aws_ecc_cert
 		ret = -1;
 		goto exit;
 	}
-	mbedtls_free(pem_buf);
-	ret = x509store_write_aws_cert(	subject_name, &subject_key,
+	ret = x509store_cert_generate(	subject_name, &subject_key,
 									issuer_crt, issuer_key,
 									ca_cert_pem, ca_cert_pem_size,
-									crt_path, mandatory, optional);
+									pem_buf, PEM_BUFFER_SIZE, &olen,
+									mandatory, optional);
 
-	mbedtls_pk_free( &subject_key );
-	return ret;
+	if(olen > 1)
+	{
+		// exclude null character
+		olen -= 1;
+
+		cert_printf( "  . cert[%d]:\r\n%s", olen, pem_buf);
+		if( ( ret = mbedtls_util_write_file(crt_path, 0, pem_buf, olen, false) ) )
+		{
+			goto exit;
+		}
+
+#if 1
+		if((PEM_BUFFER_SIZE -1 ) < ca_cert_pem_size)
+		{
+			ret = -1;
+			goto exit;
+		}
+		memcpy(pem_buf, ca_cert_pem, ca_cert_pem_size);
+		pem_buf[ca_cert_pem_size] = '\0';
+		cert_printf( "  . ca cert[%d]:\r\n%s", ca_cert_pem_size, pem_buf);
+		if( ( ret = mbedtls_util_write_file(crt_path, 0, ca_cert_pem, ca_cert_pem_size, true) ) )
+		{
+			goto exit;
+		}
+#endif
+	}
+	else
+	{
+		mbedtls_printf( "  . Invalid cert size: %d\n", olen);
+		ret = -1;
+	}
 
 exit:
 	mbedtls_pk_free( &subject_key );
@@ -371,9 +225,10 @@ int x509store_write_aws_rsa_cert
 	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional
 )
 {
+	int ret;
 	mbedtls_pk_context subject_key;
 	unsigned char *pem_buf;
-	int ret;
+	uint32_t olen;
 
 	mbedtls_pk_init( &subject_key );
 	mbedtls_printf( "  . Generate the rsa subject key ..." );
@@ -400,14 +255,43 @@ int x509store_write_aws_rsa_cert
 		ret = -1;
 		goto exit;
 	}
-	mbedtls_free(pem_buf);
-	ret = x509store_write_aws_cert(	subject_name, &subject_key,
+	ret = x509store_cert_generate(	subject_name, &subject_key,
 									issuer_crt, issuer_key,
 									ca_cert_pem, ca_cert_pem_size,
-									crt_path, mandatory, optional);
+									pem_buf, PEM_BUFFER_SIZE, &olen,
+									mandatory, optional);
 
-	mbedtls_pk_free( &subject_key );
-	return ret;
+	if(olen > 1)
+	{
+		// exclude null character
+		olen -= 1;
+
+		cert_printf( "  . cert[%d]:\r\n%s", olen, pem_buf);
+		if( ( ret = mbedtls_util_write_file(crt_path, 0, pem_buf, olen, false) ) )
+		{
+			goto exit;
+		}
+
+#if 1
+		if((PEM_BUFFER_SIZE -1 ) < ca_cert_pem_size)
+		{
+			ret = -1;
+			goto exit;
+		}
+		memcpy(pem_buf, ca_cert_pem, ca_cert_pem_size);
+		pem_buf[ca_cert_pem_size] = '\0';
+		cert_printf( "  . ca cert[%d]:\r\n%s", ca_cert_pem_size, pem_buf);
+		if( ( ret = mbedtls_util_write_file(crt_path, 0, ca_cert_pem, ca_cert_pem_size, true) ) )
+		{
+			goto exit;
+		}
+#endif
+	}
+	else
+	{
+		mbedtls_printf( "  . Invalid cert size: %d\n", olen);
+		ret = -1;
+	}
 
 exit:
 	mbedtls_pk_free( &subject_key );
