@@ -82,6 +82,14 @@ int x509store_write_aws_ecc_cert
 	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional
 );
 
+int x509store_write_aws_rsa_cert
+(
+	const char *subject_name, mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
+	const char *ca_cert_pem, uint32_t ca_cert_pem_size,
+	const char *key_path, const char *crt_path,
+	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional
+);
+
 /**
  * \brief          This function copies the components of an RSA context.
  *

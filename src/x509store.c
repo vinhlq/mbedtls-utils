@@ -203,18 +203,17 @@ exit:
 	return ret;
 }
 
-int x509store_write_aws_ecc_cert
+int x509store_write_aws_cert
 (
-	mbedtls_ecp_group_id group_id,
-	const char *subject_name, mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
+	const char *subject_name, mbedtls_pk_context *subject_key,
+	mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
 	const char *ca_cert_pem, uint32_t ca_cert_pem_size,
-	const char *key_path, const char *crt_path,
+	const char *crt_path,
 	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional
 )
 {
 	int ret;
 	x509write_crt_subject subject;
-	mbedtls_pk_context subject_key;
     mbedtls_x509write_cert x509write_crt_ctx;
 	unsigned char *pem_buf;
 	size_t len, olen;
@@ -225,35 +224,12 @@ int x509store_write_aws_ecc_cert
 		mbedtls_printf( "  . Memory allocation is failed\n" );
 		return -1;
 	}
-	mbedtls_pk_init( &subject_key );
-	mbedtls_x509write_crt_init( &x509write_crt_ctx );
-
-	mbedtls_printf( "  . Generate the subject key ..." );
-	if( ( ret = ecp_gen_key(&subject_key, group_id) ) )
-	{
-		goto exit;
-	}
-	memset(pem_buf, 0, PEM_BUFFER_SIZE);
-
-	if( ( ret = mbedtls_pk_write_key_pem( &subject_key, pem_buf, PEM_BUFFER_SIZE ) ) != 0 )
-	{
-		goto exit;
-	}
-//	mbedtls_printf("%s\n", pem_buf);
-	mbedtls_printf( " ok\r\n" );
-
-	if( (ret = mbedtls_util_write_file(key_path, 0, pem_buf, strlen(pem_buf), false) ) )
-	{
-		mbedtls_printf( "  . write file '%s' failed\n", key_path);
-		ret = -1;
-		goto exit;
-	}
 
 //	mbedtls_printf("%s\n", (const char *)qca_x509store_get_rom_address(x509store->type, x509store->sub_type, x509store->label, x509store->key_offset));
 
-
+	mbedtls_x509write_crt_init( &x509write_crt_ctx );
 	subject.name = subject_name;
-	subject.pk = &subject_key;
+	subject.pk = subject_key;
     if( ( ret = x509write_crt_setup(&x509write_crt_ctx,
     								&subject, issuer_crt, issuer_key,
     								mandatory, optional) ) )
@@ -327,8 +303,114 @@ int x509store_write_aws_ecc_cert
 	mbedtls_printf( " ok\r\n" );
 
 exit:
-	mbedtls_pk_free( &subject_key );
 	mbedtls_x509write_crt_free( &x509write_crt_ctx );
+	mbedtls_free(pem_buf);
+	return ret;
+}
+
+int x509store_write_aws_ecc_cert
+(
+	mbedtls_ecp_group_id group_id,
+	const char *subject_name, mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
+	const char *ca_cert_pem, uint32_t ca_cert_pem_size,
+	const char *key_path, const char *crt_path,
+	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional
+)
+{
+	mbedtls_pk_context subject_key;
+	unsigned char *pem_buf;
+	int ret;
+
+	mbedtls_pk_init( &subject_key );
+	mbedtls_printf( "  . Generate the ecp subject key ..." );
+	if( ( ret = ecp_gen_key(&subject_key, group_id) ) )
+	{
+		goto exit;
+	}
+	//	mbedtls_printf("%s\n", pem_buf);
+	mbedtls_printf( " ok\r\n" );
+
+	pem_buf = mbedtls_calloc(PEM_BUFFER_SIZE, sizeof(unsigned char));
+	if(!pem_buf)
+	{
+		mbedtls_printf( "  . Memory allocation is failed\n" );
+		return -1;
+	}
+	if( ( ret = mbedtls_pk_write_key_pem(&subject_key, pem_buf, PEM_BUFFER_SIZE ) ) != 0 )
+	{
+		goto exit;
+	}
+	if( (ret = mbedtls_util_write_file(key_path, 0, pem_buf, strlen(pem_buf), false) ) )
+	{
+		mbedtls_printf( "  . write file '%s' failed\n", key_path);
+		ret = -1;
+		goto exit;
+	}
+	mbedtls_free(pem_buf);
+	ret = x509store_write_aws_cert(	subject_name, &subject_key,
+									issuer_crt, issuer_key,
+									ca_cert_pem, ca_cert_pem_size,
+									crt_path, mandatory, optional);
+
+	mbedtls_pk_free( &subject_key );
+	return ret;
+
+exit:
+	mbedtls_pk_free( &subject_key );
+	mbedtls_free(pem_buf);
+	return ret;
+}
+
+#define RSA_KEY_SIZE 2048
+#define RSA_EXPONENT 65537
+int x509store_write_aws_rsa_cert
+(
+	const char *subject_name, mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
+	const char *ca_cert_pem, uint32_t ca_cert_pem_size,
+	const char *key_path, const char *crt_path,
+	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional
+)
+{
+	mbedtls_pk_context subject_key;
+	unsigned char *pem_buf;
+	int ret;
+
+	mbedtls_pk_init( &subject_key );
+	mbedtls_printf( "  . Generate the rsa subject key ..." );
+	if( ( ret = rsa_gen_key(&subject_key, RSA_KEY_SIZE, RSA_EXPONENT) ) )
+	{
+		goto exit;
+	}
+	//	mbedtls_printf("%s\n", pem_buf);
+	mbedtls_printf( " ok\r\n" );
+
+	pem_buf = mbedtls_calloc(PEM_BUFFER_SIZE, sizeof(unsigned char));
+	if(!pem_buf)
+	{
+		mbedtls_printf( "  . Memory allocation is failed\n" );
+		return -1;
+	}
+	if( ( ret = mbedtls_pk_write_key_pem(&subject_key, pem_buf, PEM_BUFFER_SIZE ) ) != 0 )
+	{
+		goto exit;
+	}
+	if( (ret = mbedtls_util_write_file(key_path, 0, pem_buf, strlen(pem_buf), false) ) )
+	{
+		mbedtls_printf( "  . write file '%s' failed\n", key_path);
+		ret = -1;
+		goto exit;
+	}
+	mbedtls_free(pem_buf);
+	ret = x509store_write_aws_cert(	subject_name, &subject_key,
+									issuer_crt, issuer_key,
+									ca_cert_pem, ca_cert_pem_size,
+									crt_path, mandatory, optional);
+
+	mbedtls_pk_free( &subject_key );
+	return ret;
+
+exit:
+	mbedtls_pk_free( &subject_key );
 	mbedtls_free(pem_buf);
 	return ret;
 }
