@@ -46,8 +46,8 @@
 *******************************************************************************/
 
 #if 1
-int mbedtls_util_write_file(	const char *path, uint32_t offset,
-							uint8_t *buf, uint32_t length,
+int mbedtls_util_write_file(const char *path, uint32_t offset,
+							const uint8_t *buf, uint32_t length,
 							bool append)
 {
 	FILE *f;
@@ -105,11 +105,7 @@ int mbedtls_util_read_file(	const char *path,
 	FILE *f;
 	struct stat fstats;
 
-	if(stat(path, &fstats))
-	{
-		return -1;
-	}
-
+	ret = stat(path, &fstats);
 	if (ret || fstats.st_size == 0)
 	{
 		return -1;

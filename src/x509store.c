@@ -36,6 +36,8 @@
 #else
 #include <stdio.h>
 #include <stdlib.h>
+#define mbedtls_calloc    calloc
+#define mbedtls_free      free
 #ifndef mbedtls_printf
 #define mbedtls_printf(fmt,args...)      printf(fmt, ## args);	fflush(stdout);
 #endif
@@ -107,7 +109,7 @@ int qca_x509store_ecc_cert
 	unsigned char *pem_buf;
 	size_t olen;
 
-	pem_buf = malloc(PEM_BUFFER_SIZE);
+	pem_buf = mbedtls_calloc(PEM_BUFFER_SIZE, sizeof(unsigned char));
 	if(!pem_buf)
 	{
 		return -1;
@@ -197,7 +199,7 @@ int qca_x509store_ecc_cert
 exit:
 	mbedtls_pk_free( &subject_key );
 	mbedtls_x509write_crt_free( &x509write_crt_ctx );
-	free(pem_buf);
+	mbedtls_free(pem_buf);
 	return ret;
 }
 
@@ -217,10 +219,10 @@ int x509store_write_aws_ecc_cert
 	unsigned char *pem_buf;
 	size_t len, olen;
 
-	pem_buf = malloc(PEM_BUFFER_SIZE);
+	pem_buf = mbedtls_calloc(PEM_BUFFER_SIZE, sizeof(unsigned char));
 	if(!pem_buf)
 	{
-		mbedtls_printf( "  . Memory alloc is failed\n" );
+		mbedtls_printf( "  . Memory allocation is failed\n" );
 		return -1;
 	}
 	mbedtls_pk_init( &subject_key );
@@ -298,7 +300,7 @@ int x509store_write_aws_ecc_cert
 			goto exit;
 		}
 
-#if 0
+#if 1
 		if((PEM_BUFFER_SIZE -1 ) < ca_cert_pem_size)
 		{
 			ret = -1;
@@ -327,7 +329,7 @@ int x509store_write_aws_ecc_cert
 exit:
 	mbedtls_pk_free( &subject_key );
 	mbedtls_x509write_crt_free( &x509write_crt_ctx );
-	free(pem_buf);
+	mbedtls_free(pem_buf);
 	return ret;
 }
 
@@ -338,9 +340,10 @@ int x509store_load_pair_from_pem(	const char *key_pem, uint32_t key_pem_size,
 	int ret;
 	unsigned char *pem_buf;
 
-	pem_buf = malloc(PEM_BUFFER_SIZE);
+	pem_buf = mbedtls_calloc(PEM_BUFFER_SIZE, sizeof(unsigned char));
 	if(!pem_buf)
 	{
+		mbedtls_printf( "  . Memory allocation is failed\n" );
 		return -1;
 	}
 
@@ -399,7 +402,7 @@ int x509store_load_pair_from_pem(	const char *key_pem, uint32_t key_pem_size,
 	mbedtls_printf( " ok\r\n" );
 
 exit:
-	free(pem_buf);
+	mbedtls_free(pem_buf);
 	return ret;
 }
 
@@ -410,9 +413,10 @@ int x509store_load_pair_from_file(	const char *key_path, const char *crt_path,
 	unsigned char *pem_buf;
 	uint32_t pem_size;
 
-	pem_buf = malloc(PEM_BUFFER_SIZE);
+	pem_buf = mbedtls_calloc(PEM_BUFFER_SIZE, sizeof(unsigned char));
 	if(!pem_buf)
 	{
+		mbedtls_printf( "  . Memory allocation is failed\n" );
 		return -1;
 	}
 
@@ -429,7 +433,7 @@ int x509store_load_pair_from_file(	const char *key_path, const char *crt_path,
 		goto exit;
 	}
 	pem_buf[pem_size] = '\0';
-	cert_printf( "  . cert: %s[%d:\r\n%s\r\n", crt_path, pem_size, pem_buf);
+	cert_printf( "  . cert: %s[%d]:\r\n%s\r\n", crt_path, pem_size, pem_buf);
 
 	mbedtls_printf( "  . Loading the certificate ..." );
 	if( ( ret = mbedtls_x509_crt_parse( crt,
@@ -446,6 +450,7 @@ int x509store_load_pair_from_file(	const char *key_path, const char *crt_path,
 	mbedtls_printf( "  . Loading the key ..." );
 	if( ( ret = mbedtls_util_read_file(key_path, 0, pem_buf, PEM_BUFFER_SIZE - 1, &pem_size) ) )
 	{
+		mbedtls_printf( "  . Read file '%s' failed...\n", key_path);
 		goto exit;
 	}
 
@@ -456,7 +461,7 @@ int x509store_load_pair_from_file(	const char *key_path, const char *crt_path,
 		goto exit;
 	}
 	pem_buf[pem_size] = '\0';
-	cert_printf( "  . key: %s[%d:\r\n%s\r\n", key_path, pem_size, pem_buf);
+	cert_printf( "  . key: %s[%d]:\r\n%s\r\n", key_path, pem_size, pem_buf);
 
 	ret = mbedtls_pk_parse_key
 			(
@@ -484,7 +489,7 @@ int x509store_load_pair_from_file(	const char *key_path, const char *crt_path,
 	mbedtls_printf( " ok\r\n" );
 
 exit:
-	free(pem_buf);
+	mbedtls_free(pem_buf);
 	return ret;
 }
 

@@ -106,7 +106,7 @@ int x509store_check_pair_from_pem(	const char *key_pem, uint32_t key_pem_size,
 
 int mbedtls_util_write_file(	const char *path,
 							uint32_t offset,
-							uint8_t *buf,
+							const uint8_t *buf,
 							uint32_t length,
 							bool append);
 #define mbedtls_util_write_pem_file(path, pem, size)	\
