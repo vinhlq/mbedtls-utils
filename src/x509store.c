@@ -85,6 +85,8 @@ static const char *TAG = "esp-tls-store";
 #define debugPrintln(...)
 #endif
 
+#define cert_printf	mbedtls_printf
+
 #define PEM_BUFFER_SIZE	(3072)
 
 
@@ -120,7 +122,7 @@ int qca_x509store_ecc_cert
 	if( ( ret = mbedtls_pk_write_key_pem( &subject_key, pem_buf, PEM_BUFFER_SIZE ) ) != 0 )
 		goto exit;
 	mbedtls_printf("%s\n", pem_buf);
-	mbedtls_printf( " ok\n" );
+	mbedtls_printf( " ok\r\n" );
 
 	if( ( ret = mbedtls_util_write_file(key_path, 0, pem_buf, strlen((const char *)pem_buf), false) ) )
 	{
@@ -190,7 +192,7 @@ int qca_x509store_ecc_cert
 				olen, pem_buf
 			);
 #endif
-	mbedtls_printf( " ok\n" );
+	mbedtls_printf( " ok\r\n" );
 
 exit:
 	mbedtls_pk_free( &subject_key );
@@ -230,14 +232,15 @@ int x509store_write_aws_ecc_cert
 		goto exit;
 	}
 	memset(pem_buf, 0, PEM_BUFFER_SIZE);
+
 	if( ( ret = mbedtls_pk_write_key_pem( &subject_key, pem_buf, PEM_BUFFER_SIZE ) ) != 0 )
 	{
 		goto exit;
 	}
 //	mbedtls_printf("%s\n", pem_buf);
-	mbedtls_printf( " ok\n" );
+	mbedtls_printf( " ok\r\n" );
 
-	if( (ret = mbedtls_util_write_file(key_path, 0, pem_buf, ca_cert_pem_size, false) ) )
+	if( (ret = mbedtls_util_write_file(key_path, 0, pem_buf, strlen(pem_buf), false) ) )
 	{
 		mbedtls_printf( "  . write file '%s' failed\n", key_path);
 		ret = -1;
@@ -289,15 +292,26 @@ int x509store_write_aws_ecc_cert
 		}
 #endif
 #else
+		cert_printf( "  . cert[%d]:\r\n%s", olen, pem_buf);
 		if( ( ret = mbedtls_util_write_file(crt_path, 0, pem_buf, olen, false) ) )
 		{
 			goto exit;
 		}
 
-		if( ( ret = mbedtls_util_write_file(crt_path, 0, ca_cert_pem, strlen(ca_cert_pem), true) ) )
+#if 0
+		if((PEM_BUFFER_SIZE -1 ) < ca_cert_pem_size)
+		{
+			ret = -1;
+			goto exit;
+		}
+		memcpy(pem_buf, ca_cert_pem, ca_cert_pem_size);
+		pem_buf[ca_cert_pem_size] = '\0';
+		cert_printf( "  . ca cert[%d]:\r\n%s", ca_cert_pem_size, pem_buf);
+		if( ( ret = mbedtls_util_write_file(crt_path, 0, ca_cert_pem, ca_cert_pem_size, true) ) )
 		{
 			goto exit;
 		}
+#endif
 #endif
 	}
 	else
@@ -308,7 +322,7 @@ int x509store_write_aws_ecc_cert
 	}
 
 //	mbedtls_printf("%s\n", pem_buf);
-	mbedtls_printf( " ok\n" );
+	mbedtls_printf( " ok\r\n" );
 
 exit:
 	mbedtls_pk_free( &subject_key );
@@ -348,7 +362,7 @@ int x509store_load_pair_from_pem(	const char *key_pem, uint32_t key_pem_size,
 						"returned -0x%04x - %s\n\n", -ret, pem_buf );
 		goto exit;
 	}
-	mbedtls_printf( " ok\n" );
+	mbedtls_printf( " ok\r\n" );
 
 	mbedtls_printf( "  . Loading the key ..." );
 	if( !key_pem_size || key_pem_size >= PEM_BUFFER_SIZE )
@@ -373,7 +387,7 @@ int x509store_load_pair_from_pem(	const char *key_pem, uint32_t key_pem_size,
 						"returned -x%02x - %s\n\n", -ret, pem_buf );
 		goto exit;
 	}
-	mbedtls_printf( " ok\n" );
+	mbedtls_printf( " ok\r\n" );
 
 	mbedtls_printf( "  . Check if key and certificate match..." );
 	if( (ret = mbedtls_pk_check_pair( &crt->pk, key ) ) != 0 )
@@ -382,7 +396,7 @@ int x509store_load_pair_from_pem(	const char *key_pem, uint32_t key_pem_size,
 		mbedtls_printf( " failed\n  !  mbedtls_pk_check_pair "
 						"returned -0x%04x - %s\n\n", -ret, pem_buf );
 	}
-	mbedtls_printf( " ok\n" );
+	mbedtls_printf( " ok\r\n" );
 
 exit:
 	free(pem_buf);
@@ -415,6 +429,7 @@ int x509store_load_pair_from_file(	const char *key_path, const char *crt_path,
 		goto exit;
 	}
 	pem_buf[pem_size] = '\0';
+	cert_printf( "  . cert: %s[%d:\r\n%s\r\n", crt_path, pem_size, pem_buf);
 
 	mbedtls_printf( "  . Loading the certificate ..." );
 	if( ( ret = mbedtls_x509_crt_parse( crt,
@@ -426,7 +441,7 @@ int x509store_load_pair_from_file(	const char *key_path, const char *crt_path,
 						"returned -0x%04x - %s\n\n", -ret, pem_buf );
 		goto exit;
 	}
-	mbedtls_printf( " ok\n" );
+	mbedtls_printf( " ok\r\n" );
 
 	mbedtls_printf( "  . Loading the key ..." );
 	if( ( ret = mbedtls_util_read_file(key_path, 0, pem_buf, PEM_BUFFER_SIZE - 1, &pem_size) ) )
@@ -441,6 +456,7 @@ int x509store_load_pair_from_file(	const char *key_path, const char *crt_path,
 		goto exit;
 	}
 	pem_buf[pem_size] = '\0';
+	cert_printf( "  . key: %s[%d:\r\n%s\r\n", key_path, pem_size, pem_buf);
 
 	ret = mbedtls_pk_parse_key
 			(
@@ -456,7 +472,7 @@ int x509store_load_pair_from_file(	const char *key_path, const char *crt_path,
 						"returned -x%02x - %s\n\n", -ret, pem_buf );
 		goto exit;
 	}
-	mbedtls_printf( " ok\n" );
+	mbedtls_printf( " ok\r\n" );
 
 	mbedtls_printf( "  . Check if key and certificate match..." );
 	if( (ret = mbedtls_pk_check_pair( &crt->pk, key ) ) != 0 )
@@ -465,7 +481,7 @@ int x509store_load_pair_from_file(	const char *key_path, const char *crt_path,
 		mbedtls_printf( " failed\n  !  mbedtls_pk_check_pair "
 						"returned -0x%04x - %s\n\n", -ret, pem_buf );
 	}
-	mbedtls_printf( " ok\n" );
+	mbedtls_printf( " ok\r\n" );
 
 exit:
 	free(pem_buf);

@@ -79,6 +79,7 @@
 
 #include "mbedtls_utils_platform.h"
 
+#define PRINTF(...)	printf(__VA_ARGS__)
 
 /*******************************************************************************
 * API Constants
@@ -314,15 +315,18 @@ int mbedtls_util_write_file(	const char *path, uint32_t offset,
 		ret = qapi_Fs_Open(path, QAPI_FS_O_WRONLY, &fd);
 		if(QAPI_OK != ret)
 		{
+			PRINTF("open: '%s' to write failed: %d\r\n", path, ret);
 			return -1;
 		}
 
 		ret = qapi_Fs_Lseek(fd, offset, QAPI_FS_SEEK_END, &actual_offset);
 		if(QAPI_OK != ret)
 		{
+			PRINTF("lseek: '%s' to %d: failed: %d\r\n", path, offset, ret);
 			goto error;
 		}
 		offset = actual_offset;
+		PRINTF("file: '%s': actual offset: %d\r\n", path, offset);
 	}
 	else
 	{
@@ -333,31 +337,37 @@ int mbedtls_util_write_file(	const char *path, uint32_t offset,
 		ret = qapi_Fs_Open(path, QAPI_FS_O_WRONLY | QAPI_FS_O_CREAT, &fd);
 		if(QAPI_OK != ret)
 		{
+			PRINTF("open: '%s' to write failed: %d\r\n", path, ret);
 			return -1;
 		}
 
 		ret = qapi_Fs_Lseek(fd, offset, QAPI_FS_SEEK_SET, &actual_offset);
 		if(QAPI_OK != ret)
 		{
+			PRINTF("lseek: '%s' to %d: failed: %d\r\n", path, offset, ret);
 			goto error;
 		}
 		offset = actual_offset;
+		PRINTF("file: '%s': actual offset: %d\r\n", path, offset);
 	}
 
 
 	ret = qapi_Fs_Write(fd, buf, length, &bytes_written);
 	if(QAPI_OK != ret || bytes_written != length)
 	{
+		PRINTF("write: '%s': %d(bytes) failed: %d\r\n", path, length, ret);
 		goto error;
 	}
-	mbedtls_printf( "  . write: %d(bytes), %d(bytes) written\n", length, bytes_written);
+	PRINTF( "write: %d(bytes), %d(bytes) written\n", length, bytes_written);
 
-	if(QAPI_OK == qapi_Fs_Close(fd))
+	ret = qapi_Fs_Close(fd);
+	if(QAPI_OK == ret)
 	{
 		return 0;
 	}
 	else
 	{
+		PRINTF("close: '%s' on write failed: %d\r\n", path, ret);
 		return -1;
 	}
 
@@ -380,33 +390,40 @@ int mbedtls_util_read_file(	const char *path,
 	ret = qapi_Fs_Stat(path, &fstat);
 	if (QAPI_OK != ret || fstat.st_size == 0)
 	{
+		PRINTF("stat: '%s' failed: %d, st_size: %d\r\n", path, ret, fstat.st_size);
 		return -1;
 	}
 
 	ret = qapi_Fs_Open(path, QAPI_FS_O_RDONLY, &fd);
 	if(QAPI_OK != ret)
 	{
+		PRINTF("open: '%s' to read failed: %d\r\n", path, ret);
 		return -1;
 	}
 
 	ret = qapi_Fs_Lseek(fd, offset, QAPI_FS_SEEK_SET, &n);
 	if(QAPI_OK != ret || n != offset)
 	{
+		PRINTF("lseek: '%s' to %d: failed: %d\r\n", path, offset, ret);
 		goto error;
 	}
+	PRINTF("file: '%s': actual offset: %d\r\n", path, n);
 
 	ret = qapi_Fs_Read(fd, buf, length, read_length);
 	if(QAPI_OK != ret)
 	{
+		PRINTF("read: '%s': %d(bytes) failed: %d\r\n", path, length, ret);
 		goto error;
 	}
 
-	if(QAPI_OK == qapi_Fs_Close(fd))
+	ret = qapi_Fs_Close(fd);
+	if(QAPI_OK == ret)
 	{
 		return 0;
 	}
 	else
 	{
+		PRINTF("close: '%s' on read failed: %d\r\n", path, ret);
 		return -1;
 	}
 
