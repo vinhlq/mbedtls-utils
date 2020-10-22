@@ -184,7 +184,7 @@ int x509write_crt_setup(mbedtls_x509write_cert *ctx,
  * \return         \c 0 on success.
  * \return         #MBEDTLS_ERR_MPI_ALLOC_FAILED on memory allocation failure.
  */
-int x509write_crt_write_pem_buffer( mbedtls_x509write_cert *ctx, unsigned char *buffer, int length, size_t *olen);
+int x509write_crt_pem( mbedtls_x509write_cert *ctx, unsigned char *buffer, int length, size_t *olen);
 
 /**
  * \brief          This function copies the components of an RSA context.
@@ -195,7 +195,7 @@ int x509write_crt_write_pem_buffer( mbedtls_x509write_cert *ctx, unsigned char *
  * \return         \c 0 on success.
  * \return         #MBEDTLS_ERR_MPI_ALLOC_FAILED on memory allocation failure.
  */
-int x509write_crt_write_der_buffer( mbedtls_x509write_cert *ctx, unsigned char *buffer, int length);
+int x509write_crt_der( mbedtls_x509write_cert *ctx, unsigned char *buffer, int length);
 
 /**
  * \brief          This function copies the components of an RSA context.
@@ -206,7 +206,7 @@ int x509write_crt_write_der_buffer( mbedtls_x509write_cert *ctx, unsigned char *
  * \return         \c 0 on success.
  * \return         #MBEDTLS_ERR_MPI_ALLOC_FAILED on memory allocation failure.
  */
-int x509write_crt_write_pem( mbedtls_x509write_cert *ctx, const char *output_file);
+int x509write_crt_pem_file( mbedtls_x509write_cert *ctx, const char *output_file);
 
 
 

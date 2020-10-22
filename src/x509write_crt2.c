@@ -433,7 +433,7 @@ int x509write_crt_setup
 	return 0;
 }
 
-int x509write_crt_write_pem_buffer
+int x509write_crt_pem
 	(
 		mbedtls_x509write_cert *ctx,
 		unsigned char *buffer, int length,
@@ -484,10 +484,13 @@ int x509write_crt_write_pem_buffer
 						-ret, buffer );
 		goto exit;
 	}
+	mbedtls_printf( " ok (pem size: %u)\n", oolen );
 
 	if(olen)
-		*olen = oolen;
-	mbedtls_printf( " ok (pem size: %u)\n", oolen );
+	{
+		// exclude null character
+		*olen = oolen - 1;
+	}
 
 exit:
 	mbedtls_ctr_drbg_free( &ctr_drbg );
@@ -495,7 +498,7 @@ exit:
 	return( ret );
 }
 
-int x509write_crt_write_der_buffer
+int x509write_crt_der
 	(
 		mbedtls_x509write_cert *ctx,
 		unsigned char *buffer, int length
@@ -538,7 +541,7 @@ exit:
 }
 
 #ifdef MBEDTLS_FS_IO
-int x509write_crt_write_pem
+int x509write_crt_pem_file
 	(
 		mbedtls_x509write_cert *ctx,
 		const char *output_file
@@ -549,7 +552,7 @@ int x509write_crt_write_pem
     unsigned char output_buf[4096];
     size_t len = 0;
 
-    if( ( ret = x509write_crt_write_pem_buffer( ctx, output_buf, 4096, NULL ) ) < 0 )
+    if( ( ret = x509write_crt_pem( ctx, output_buf, 4096, NULL ) ) < 0 )
         return( ret );
 
     len = strlen( (char *) output_buf );

@@ -41,14 +41,8 @@ extern "C" {
 #endif
 
 
-int tls_store_read(	const char *path,
-					uint8_t *buf,
-					uint32_t offset,
-					uint32_t *length);
-
-
 /**
- * \brief          qca_tls_store_ecc_cert
+ * \brief          x509store_cert_generate
  *
  * \param type      The destination context. This must be initialized.
  * \param sub_type      The source context. This must be initialized.
@@ -56,12 +50,12 @@ int tls_store_read(	const char *path,
  *
  * \return         \c 0 on success.
  */
-int qca_tls_store_ecc_cert
+int x509store_cert_generate
 (
-	mbedtls_ecp_group_id group_id,
-	const char *subject_name, mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
-	const char *key_path, const char *crt_path,
-	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional
+	const char *subject_name, mbedtls_pk_context *subject_key,
+	mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
+	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional,
+	unsigned char *cert_pem_buf, uint32_t cert_pem_buf_size, uint32_t *cert_pem_bytes_written
 );
 
 /**

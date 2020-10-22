@@ -96,9 +96,8 @@ int x509store_cert_generate
 (
 	const char *subject_name, mbedtls_pk_context *subject_key,
 	mbedtls_x509_crt *issuer_crt, mbedtls_pk_context *issuer_key,
-	const char *ca_cert_pem, uint32_t ca_cert_pem_size,
-	unsigned char *cert_pem_buf, uint32_t cert_pem_buf_size, uint32_t *cert_pem_bytes_written,
-	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional
+	const x509write_crt_mandatory *mandatory, const x509write_crt_optional *optional,
+	unsigned char *cert_pem_buf, uint32_t cert_pem_buf_size, uint32_t *cert_pem_bytes_written
 )
 {
 	int ret;
@@ -116,7 +115,7 @@ int x509store_cert_generate
     	goto exit;
     }
 
-	if( ( ret = x509write_crt_write_pem_buffer(&x509write_crt_ctx, cert_pem_buf, cert_pem_buf_size, &olen) ) )
+	if( ( ret = x509write_crt_pem(&x509write_crt_ctx, cert_pem_buf, cert_pem_buf_size, &olen) ) )
 	{
 		ret = -1;
 		goto exit;
@@ -173,15 +172,11 @@ int x509store_write_aws_ecc_cert
 	}
 	ret = x509store_cert_generate(	subject_name, &subject_key,
 									issuer_crt, issuer_key,
-									ca_cert_pem, ca_cert_pem_size,
-									pem_buf, PEM_BUFFER_SIZE, &olen,
-									mandatory, optional);
+									mandatory, optional,
+									pem_buf, PEM_BUFFER_SIZE, &olen);
 
 	if(olen > 1)
 	{
-		// exclude null character
-		olen -= 1;
-
 		cert_printf( "  . cert[%d]:\r\n%s", olen, pem_buf);
 		if( ( ret = mbedtls_util_write_file(crt_path, 0, pem_buf, olen, false) ) )
 		{
@@ -257,9 +252,8 @@ int x509store_write_aws_rsa_cert
 	}
 	ret = x509store_cert_generate(	subject_name, &subject_key,
 									issuer_crt, issuer_key,
-									ca_cert_pem, ca_cert_pem_size,
-									pem_buf, PEM_BUFFER_SIZE, &olen,
-									mandatory, optional);
+									mandatory, optional,
+									pem_buf, PEM_BUFFER_SIZE, &olen);
 
 	if(olen > 1)
 	{
@@ -300,24 +294,21 @@ exit:
 }
 
 int x509store_load_pair_from_pem(	const char *key_pem, uint32_t key_pem_size,
-										const char *crt_pem, uint32_t crt_pem_size,
-										mbedtls_pk_context *key, mbedtls_x509_crt *crt)
+									const char *crt_pem, uint32_t crt_pem_size,
+									mbedtls_pk_context *key, mbedtls_x509_crt *crt)
 {
 	int ret;
 	unsigned char *pem_buf;
+	uint32_t pem_size;
 
-	pem_buf = mbedtls_calloc(PEM_BUFFER_SIZE, sizeof(unsigned char));
+	pem_size = key_pem_size > crt_pem_size ? (key_pem_size + 1) : (crt_pem_size + 1);
+	pem_buf = mbedtls_calloc(pem_size, sizeof(unsigned char));
 	if(!pem_buf)
 	{
-		mbedtls_printf( "  . Memory allocation is failed\n" );
+		mbedtls_printf( "  . Memory allocation: %d(bytes) is failed\n", pem_size );
 		return -1;
 	}
 
-	if( !crt_pem_size || crt_pem_size >= PEM_BUFFER_SIZE )
-	{
-		mbedtls_printf( "  . Invalid key pem size: %d\n", crt_pem_size);
-		goto exit;
-	}
 	memcpy(pem_buf, crt_pem, crt_pem_size);
 	pem_buf[crt_pem_size] = '\0';
 
@@ -334,11 +325,6 @@ int x509store_load_pair_from_pem(	const char *key_pem, uint32_t key_pem_size,
 	mbedtls_printf( " ok\r\n" );
 
 	mbedtls_printf( "  . Loading the key ..." );
-	if( !key_pem_size || key_pem_size >= PEM_BUFFER_SIZE )
-	{
-		mbedtls_printf( "  . Invalid key pem size: %d\n", key_pem_size);
-		goto exit;
-	}
 	memcpy(pem_buf, key_pem, key_pem_size);
 	pem_buf[key_pem_size] = '\0';
 
@@ -477,7 +463,7 @@ int x509store_check_pair_from_file(const char *key_path, const char *crt_path)
 }
 
 int x509store_check_pair_from_pem(	const char *key_pem, uint32_t key_pem_size,
-										const char *crt_pem, uint32_t crt_pem_size)
+									const char *crt_pem, uint32_t crt_pem_size)
 {
 	mbedtls_pk_context key;
 	mbedtls_x509_crt crt;
@@ -487,23 +473,13 @@ int x509store_check_pair_from_pem(	const char *key_pem, uint32_t key_pem_size,
 	mbedtls_x509_crt_init( &crt );
 
 	ret = x509store_load_pair_from_pem(	key_pem, key_pem_size,
-											crt_pem, crt_pem_size,
-											&key, &crt);
+										crt_pem, crt_pem_size,
+										&key, &crt);
 
 	mbedtls_pk_free( &key );
 	mbedtls_x509_crt_free( &crt );
 
 	return ret;
-}
-
-static int pem_persistent_init(const char *path, const char *default_pem)
-{
-
-}
-
-int qca_x509store_cert_persistent_init(const char *path, const char *default_pem)
-{
-
 }
 
 #ifdef MBEDTLS_FS_IO
